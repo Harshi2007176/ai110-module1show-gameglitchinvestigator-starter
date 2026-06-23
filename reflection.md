@@ -4,9 +4,9 @@ Answer each question in 3 to 5 sentences. Be specific and honest about what actu
 
 ## 1. What was broken when you started?
 
-- What did the game look like the first time you ran it?
-- List at least two concrete bugs you noticed at the start  
-  (for example: "the hints were backwards").
+- When I first ran the game, it appeared to load correctly, but bugs became clear as soon as I started playing.
+- The hints were backwards — guessing higher than the secret number showed "Go Higher" instead of "Go Lower", and vice versa.
+- The "New Game" button did nothing when clicked, requiring a full page refresh to start over.
 
 **Bug Reproduction Log**
 
@@ -14,26 +14,27 @@ Document at least 3 bugs you found. Add rows as needed.
 
 | Input | Expected Behavior | Actual Behavior | Console Output / Error |
 |-------|-------------------|-----------------|------------------------|
-| | | | |
-| | | | |
-| | | | |
+|  99   |go lower           |go higher        |none                    |
+|  66   |ho high            |go lower         |none                    |
+| Clicked "New Game" button | Game resets | Nothing happens, must refresh page | none |
+| Clicked "Submit Guess" | Guess added to history immediately | Must click submit twice | none |
+| Double submit due to history bug | 1 attempt counted | 2 attempts counted | none |
 
 ---
 
 ## 2. How did you use AI as a teammate?
 
-- Which AI tools did you use on this project (for example: ChatGPT, Gemini, Copilot)?
-- Give one example of an AI suggestion that was correct (including what the AI suggested and how you verified the result).
-- Give one example of an AI suggestion that was incorrect or misleading (including what the AI suggested and how you verified the result).
+I used Claude Code in agent mode as my main coding teammate, plus ChatGPT for quick "why is Streamlit doing this" questions.
+
+**Correct suggestion.** When I asked Claude to focus on one bug, it pointed at `check_guess` in `app.py` and said the "Go HIGHER!" / "Go LOWER!" hints were swapped. `guess > secret` was returning "Go HIGHER!" when it should say "Go LOWER!". I verified this by playing the game with the Developer Debug Info expander open: I could see the secret was 42, I typed 80, and the app told me to "Go HIGHER!", which was clearly wrong. After Claude flipped the message, I retested with secret=42 and guess=80 and got the correct "Go LOWER!" hint. I also locked the fix in with a pytest case (`test_hint_too_high_says_lower`) that asserts `hint_for("Too High") == "📉 Go LOWER!"` so the bug can't regress.
+
+**Incorrect / misleading suggestion.** During the refactor, Claude moved `check_guess` into `logic_utils.py` and dropped the original `TypeError` fallback branch, but it left the `if attempts % 2 == 0: secret = str(...)` glitch in `handle_submission`. That combination silently introduced a regression: on every even-numbered guess the app would now crash with `TypeError: '>' not supported between 'int' and 'str'` instead of silently misbehaving. I caught it by re-reading the diff before committing and noticing the fallback was gone while the str-cast wasn't: Claude even called it out in its summary, but only because I prompted it for one. The lesson: an AI saying "tests pass" only proves what the tests cover; the str-cast path had no test, so green pytest was misleading.
 
 ---
 
 ## 3. Debugging and testing your fixes
 
-- How did you decide whether a bug was really fixed?
-- Describe at least one test you ran (manual or using pytest)  
-  and what it showed you about your code.
-- Did AI help you design or understand any tests? How?
+I treated a bug as "really fixed" only after both a manual play-through and a pytest assertion agreed. For the inverted hints I opened the Developer Debug Info panel to peek at the secret, then guessed deliberately above and below it (e.g. secret=42, guesses 80 and 10) and confirmed the hints now said "Go LOWER!" and "Go HIGHER!" in the right direction. For the logic refactor I ran `python3 -m pytest tests/ -v`, which initially printed `22 passed in 0.02s`: the new `test_hint_too_high_says_lower` and `test_hint_too_low_says_higher` cases were the ones that specifically protected the bug I had just fixed, so seeing them green meant the regression couldn't quietly come back. Claude helped me design the test suite: I asked it to generate tests for `check_guess`, `hint_for`, `get_range_for_difficulty`, `parse_guess`, and `update_score`, and it suggested edge cases I wouldn't have thought of (empty input, `None`, the score floor at 10 for late wins). Reading those tests also helped me understand the score formula better: I had to trace `100 - 10 * (attempt_number + 1)` by hand to confirm the expected values were right.
 
 ---
 
