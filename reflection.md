@@ -40,13 +40,14 @@ I treated a bug as "really fixed" only after both a manual play-through and a py
 
 ## 4. What did you learn about Streamlit and state?
 
-- How would you explain Streamlit "reruns" and session state to a friend who has never used Streamlit?
+The biggest thing I learned is that Streamlit reruns the entire script from top to bottom every time the user does almost anything: clicks a button, types in a box, toggles a checkbox. So if I write `secret = random.randint(1, 100)` at module scope, a new secret gets picked on every interaction and the game becomes unwinnable. The way to keep a value alive across reruns is `st.session_state` — it's a dict-like object that survives reruns, so you guard initialization with `if "secret" not in st.session_state: st.session_state.secret = ...` and only write to it inside event handlers. The way I'd explain it to a friend: imagine every click reloads the page, and `session_state` is the only suitcase you're allowed to carry across the reload. Anything not in the suitcase gets recreated from scratch.
 
 ---
 
 ## 5. Looking ahead: your developer habits
 
-- What is one habit or strategy from this project that you want to reuse in future labs or projects?
-  - This could be a testing habit, a prompting strategy, or a way you used Git.
-- What is one thing you would do differently next time you work with AI on a coding task?
-- In one or two sentences, describe how this project changed the way you think about AI generated code.
+**Habit I want to keep.** Writing a pytest case the moment I fix a bug, even a one-line one. The inverted hint was a five-character change, but I added `test_hint_too_high_says_lower` and `test_hint_too_low_says_higher` immediately after so the bug literally cannot come back without a red test. That tiny extra step turned "I think it works" into "the suite will yell if I'm wrong." I also want to keep the habit of scoping my AI prompts: when I told Claude "focus on one problem and prompt me before moving forward" it did way better work than the earlier turn where I asked it to "refactor everything."
+
+**Thing I would do differently.** I'd diff the AI's output against my last known-good state before accepting it, every single time. During the refactor Claude removed the `TypeError` fallback from `check_guess` while leaving the `secret = str(...)` line in `handle_submission`, which silently introduced a crash on even-numbered guesses. Tests still passed because that path wasn't covered. If I had done a careful `git diff` before committing instead of trusting "22 passed," I would have caught it immediately.
+
+**How this changed my view of AI-generated code.** AI is genuinely faster than me at the mechanical parts — extracting functions, writing test boilerplate, generating commit messages — but it has zero intuition for which lines of existing code are *load-bearing*. Green tests prove what the tests cover, not that the code works; I have to be the one who decides what "works" means and where the holes in the test suite are.
